@@ -3,7 +3,7 @@
 Install the [Moonlit](https://github.com/wolfware-labs/moonlit) CLI in a GitHub Actions workflow.
 
 ```yaml
-- uses: actions/checkout@v6
+- uses: actions/checkout@v7
   with:
     fetch-depth: 0
 - uses: wolfware-labs/setup-moonlit@v1
@@ -48,7 +48,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: wolfware-labs/setup-moonlit@v1
@@ -75,7 +75,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: wolfware-labs/setup-moonlit@v1
       - run: moonlit validate
 ```
