@@ -90,13 +90,31 @@ The action does not log in to a registry. Add a step:
     MOONLIT_TOKEN: ${{ secrets.MOONLIT_TOKEN }}
 ```
 
+## How it installs
+
+With the default `version: latest`, the action downloads and runs Moonlit's official
+[cargo-dist](https://github.com/axodotdev/cargo-dist) installer script
+(`moonlit-installer.sh` / `.ps1`) from the latest GitHub release, piping it into `sh` (or
+`Invoke-Expression` on Windows) on the runner, with the job's secrets in scope. The installer
+carries per-target sha256 checksums that are embedded into it at release build time, and it
+verifies the downloaded archive against them before installing — so the binary that lands on
+`PATH` is exactly the one the release produced. Those checksums pin the archive given that
+installer script; they do not pin the script itself. Passing an exact `version:` (rather than
+`latest`) fetches the installer from that specific tagged release, which pins the installer
+script too, instead of tracking whatever `latest` resolves to at run time.
+
 ## Caching
 
 The plugin content store is cached automatically, keyed on the runner OS and a hash of the files
 matched by `cache-dependency-path`. Put `setup-moonlit` **after** `actions/checkout`; before it,
 no config file is visible and caching is skipped with a log line saying so.
 
-The store is content-addressed by sha256, so a stale entry is a cache miss, never a wrong plugin.
+Moonlit's plugin store addresses plugin *content* by sha256, so a stale content entry is a cache
+miss, never a wrong plugin. That guarantee does not extend to the store's `refs/*.json` files,
+which cache a mutable tag's resolution to a digest for 15 minutes. `actions/cache` saves and
+restores the whole store directory, so a job that starts within 15 minutes of the run that primed
+the cache can resolve a mutable plugin tag to whatever digest was seen back then, instead of
+re-querying the registry.
 
 Set `cache: 'false'` to turn it off.
 
