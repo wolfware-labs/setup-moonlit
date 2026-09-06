@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: install ${{ matrix.version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        version: [latest, '1.2.0']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - id: setup
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+
+      - name: The CLI runs and reports the requested version
+        shell: bash
+        env:
+          REQUESTED: ${{ matrix.version }}
+          REPORTED: ${{ steps.setup.outputs.version }}
+          BIN_DIR: ${{ steps.setup.outputs.bin-dir }}
+        run: |
+          set -euo pipefail
+
+          got="$(moonlit --version)"
+          echo "moonlit --version => $got"
+          [[ "$got" == "moonlit "* ]]
+
+          if [[ "$REQUESTED" != "latest" ]]; then
+            [[ "$got" == "moonlit ${REQUESTED}" ]]
+            [[ "$REPORTED" == "$REQUESTED" ]]
+          fi
+
+          [[ -n "$REPORTED" ]]
+          [[ -n "$BIN_DIR" ]]
+
+      - name: PATH resolves moonlit from the action's install directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolved="$(command -v moonlit)"
+          echo "command -v moonlit => $resolved"
+          case "$resolved" in
+            *moonlit/bin/moonlit*) ;;
+            *) echo "moonlit did not resolve from the action's install dir"; exit 1 ;;
+          esac
+
+      - name: The binary executes real subcommands
+        shell: bash
+        run: |
+          set -euo pipefail
+          moonlit --help > /dev/null
+          moonlit cache ls
+
+  reject-bad-version:
+    name: reject ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: shell injection
+            bad: '; rm -rf /'
+          - label: not a version
+            bad: 'not-a-version'
+          - label: newline smuggling
+            bad: "latest\nhttp://evil.example"
+          - label: nonexistent release
+            bad: '9.9.9-nope'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          version: ${{ matrix.bad }}
+
+      - name: The action must have failed
+        if: steps.bad.outcome != 'failure'
+        run: |
+          echo "setup-moonlit accepted a version input it should have rejected"
+          exit 1
