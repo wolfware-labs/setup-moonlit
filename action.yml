@@ -142,7 +142,16 @@ runs:
         fi
 
         raw="$("$exe" --version)"
-        installed="${raw##* }"
+
+        # Extract a semver from anywhere in the output rather than assuming
+        # it is the last space-delimited token: a build metadata suffix such
+        # as "(abc123)" would otherwise silently become the "installed"
+        # value.
+        if [[ ! "$raw" =~ ([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?) ]]; then
+          echo "::error::setup-moonlit: could not parse a version from 'moonlit --version' output: ${raw}"
+          exit 1
+        fi
+        installed="${BASH_REMATCH[1]}"
 
         if [[ -n "$EXPECTED" && "$installed" != "$EXPECTED" ]]; then
           echo "::error::setup-moonlit: requested moonlit ${EXPECTED} but ${installed} was installed."

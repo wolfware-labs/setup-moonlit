@@ -40,6 +40,17 @@ jobs:
           if [[ "$REQUESTED" != "latest" ]]; then
             [[ "$got" == "moonlit ${REQUESTED}" ]]
             [[ "$REPORTED" == "$REQUESTED" ]]
+          else
+            # The pinned "1.2.0" arm above is an immutable published release,
+            # so it can never catch a future `moonlit --version` format
+            # change (e.g. clap's long_version growing a build SHA suffix).
+            # The "latest" arm tracks whatever the CLI ships today, so make
+            # it assert the exact shape setup-moonlit's parser depends on:
+            # this repo goes red on a format change instead of a consumer.
+            if [[ ! "$got" =~ ^moonlit\ [0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+              echo "'moonlit --version' output no longer matches the expected 'moonlit X.Y.Z' shape: $got"
+              exit 1
+            fi
           fi
 
           [[ -n "$REPORTED" ]]
