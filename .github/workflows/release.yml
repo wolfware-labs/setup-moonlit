@@ -17,6 +17,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Prove the action works at this exact commit before the floating
+      # major tag is force-moved to it. ci.yml's unfiltered `on: push:` runs
+      # concurrently with this workflow on the same tag push, so it cannot
+      # be relied on to gate the tag move — this smoke test has to do it
+      # inline, in this same job, so there is no cross-job race.
+      - name: Smoke test the action at this tag
+        id: smoke
+        uses: ./
+        with:
+          version: latest
+
+      - name: The action works before the major tag is moved
+        shell: bash
+        env:
+          VERSION: ${{ steps.smoke.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          moonlit --version
+
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::setup-moonlit: smoke test produced an empty 'version' output; refusing to move the major tag."
+            exit 1
+          fi
+
       - name: Point vN at this release
         shell: bash
         env:
