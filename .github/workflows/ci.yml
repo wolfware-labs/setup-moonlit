@@ -65,7 +65,17 @@ jobs:
           # Anchor on $RUNNER_TEMP itself, not just the "moonlit/bin/moonlit"
           # suffix: the old substring check would also pass for an unrelated
           # /usr/local/moonlit/bin/moonlit on PATH.
-          expected="${RUNNER_TEMP}/moonlit/bin/moonlit"
+          #
+          # On Windows, $RUNNER_TEMP is a native "D:\a\_temp" path, but
+          # git-bash's `command -v` resolves PATH entries back in its own
+          # POSIX form ("/d/a/_temp/..."). Normalize through cygpath (bundled
+          # with Git for Windows) so the two are comparable; elsewhere
+          # $RUNNER_TEMP is already POSIX and cygpath doesn't exist.
+          runner_temp="$RUNNER_TEMP"
+          if command -v cygpath > /dev/null 2>&1; then
+            runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          fi
+          expected="${runner_temp}/moonlit/bin/moonlit"
           case "$resolved" in
             "$expected"|"$expected".exe) ;;
             *) echo "moonlit did not resolve from the action's install dir (expected ${expected}[.exe], got ${resolved})"; exit 1 ;;
