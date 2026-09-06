@@ -123,3 +123,78 @@ jobs:
               exit 1
               ;;
           esac
+
+  cache-prime:
+    name: cache — prime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - id: setup
+        uses: ./
+        with:
+          cache-dependency-path: action.yml
+
+      - name: Put a marker in the plugin cache directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.cache/moonlit"
+          echo primed > "$HOME/.cache/moonlit/marker"
+
+  cache-hit:
+    name: cache — hit
+    runs-on: ubuntu-latest
+    needs: cache-prime
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - id: setup
+        uses: ./
+        with:
+          cache-dependency-path: action.yml
+
+      - name: The cache restored on an exact key match
+        shell: bash
+        env:
+          CACHE_HIT: ${{ steps.setup.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          echo "cache-hit => ${CACHE_HIT}"
+          [[ "$CACHE_HIT" == "true" ]]
+          [[ "$(cat "$HOME/.cache/moonlit/marker")" == "primed" ]]
+
+  cache-disabled:
+    name: cache — disabled and keyless
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - id: off
+        uses: ./
+        with:
+          cache: 'false'
+
+      - name: Nothing was restored when caching is off
+        shell: bash
+        env:
+          CACHE_HIT: ${{ steps.off.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          [[ -z "$CACHE_HIT" ]]
+
+      - name: A config path that matches nothing still installs cleanly
+        id: nohash
+        uses: ./
+        with:
+          cache-dependency-path: 'no-such-config.yml'
+
+      - name: The action succeeded and skipped the cache
+        shell: bash
+        env:
+          CACHE_HIT: ${{ steps.nohash.outputs.cache-hit }}
+          VERSION: ${{ steps.nohash.outputs.version }}
+        run: |
+          set -euo pipefail
+          [[ -z "$CACHE_HIT" ]]
+          [[ -n "$VERSION" ]]
