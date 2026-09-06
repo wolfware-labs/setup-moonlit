@@ -3,7 +3,7 @@
 Install the [Moonlit](https://github.com/wolfware-labs/moonlit) CLI in a GitHub Actions workflow.
 
 ```yaml
-- uses: actions/checkout@v5
+- uses: actions/checkout@v6
   with:
     fetch-depth: 0
 - uses: wolfware-labs/setup-moonlit@v1
@@ -12,13 +12,14 @@ Install the [Moonlit](https://github.com/wolfware-labs/moonlit) CLI in a GitHub 
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Works on `ubuntu-*`, `macos-*` and `windows-*` runners.
+Works on `ubuntu-*` and `macos-*` runners, and on x86-64 `windows-*` runners. Moonlit does not
+publish an `aarch64-pc-windows-msvc` build, so `windows-11-arm` is not supported.
 
 ## Inputs
 
 | Input | Default | Description |
 |---|---|---|
-| `version` | `latest` | `latest`, or an exact version such as `1.2.0`. Semver ranges are not supported. |
+| `version` | `latest` | `latest`, or an exact version such as `1.2.0`. Semver ranges are not supported. If the version actually installed does not match an exact request, the action fails — this is its main correctness guarantee. |
 | `cache` | `true` | Cache the Moonlit plugin content directory between runs. |
 | `cache-dependency-path` | `release.y*ml` | Glob whose matched files key the plugin cache. |
 
@@ -47,7 +48,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: wolfware-labs/setup-moonlit@v1
@@ -65,7 +66,7 @@ name: Validate pipeline
 
 on:
   pull_request:
-    paths: ['release.yml']
+    paths: ['release.yml', 'release.yaml']
 
 permissions:
   contents: read
@@ -74,7 +75,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: wolfware-labs/setup-moonlit@v1
       - run: moonlit validate
 ```
