@@ -30,6 +30,9 @@ outputs:
   cache-hit:
     description: '"true" when the plugin cache restored on an exact key match.'
     value: ${{ steps.cache.outputs.cache-hit }}
+  cache-dir:
+    description: 'The resolved plugin cache directory for this runner OS.'
+    value: ${{ steps.resolve.outputs.cache-dir }}
 
 runs:
   using: composite

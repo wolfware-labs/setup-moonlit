@@ -28,7 +28,8 @@ Works on `ubuntu-*`, `macos-*` and `windows-*` runners.
 |---|---|
 | `version` | The version actually installed. |
 | `bin-dir` | The directory added to `PATH`. |
-| `cache-hit` | `true` when the plugin cache restored on an exact key match. |
+| `cache-dir` | The resolved plugin cache directory for this runner OS. |
+| `cache-hit` | `'true'` on an exact cache key match, `'false'` on a partial hit against a `restore-keys` prefix, or `''` when caching was off or skipped. |
 
 ## Run a release pipeline
 
