@@ -1,0 +1,128 @@
+name: Setup Moonlit
+description: Install the Moonlit CLI and put it on PATH
+author: Wolfware LLC
+
+branding:
+  icon: moon
+  color: gray-dark
+
+inputs:
+  version:
+    description: 'Moonlit version to install: "latest" or an exact version such as "1.2.0".'
+    required: false
+    default: latest
+  cache:
+    description: 'Cache the Moonlit plugin content directory between runs.'
+    required: false
+    default: 'true'
+  cache-dependency-path:
+    description: 'Glob whose matched files key the plugin cache.'
+    required: false
+    default: 'release.y*ml'
+
+outputs:
+  version:
+    description: 'The version actually installed, read back from `moonlit --version`.'
+    value: ${{ steps.verify.outputs.version }}
+  bin-dir:
+    description: 'The directory added to PATH.'
+    value: ${{ steps.resolve.outputs.bin-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve version and paths
+      id: resolve
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+
+        # Bash's =~ anchors against the whole string. grep would match line by
+        # line, so a value carrying a newline would slip past an anchored
+        # pattern with a benign first line.
+        if [[ ! "$INPUT_VERSION" =~ ^(latest|v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+          echo "::error::setup-moonlit: invalid 'version' input. Use 'latest' or an exact version such as '1.2.0'."
+          exit 1
+        fi
+
+        if [[ "$INPUT_VERSION" == "latest" ]]; then
+          base="https://github.com/wolfware-labs/moonlit/releases/latest/download"
+          expected=""
+        else
+          exact="${INPUT_VERSION#v}"
+          base="https://github.com/wolfware-labs/moonlit/releases/download/moonlit-v${exact}"
+          expected="$exact"
+        fi
+
+        case "$RUNNER_OS" in
+          Linux)   cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/moonlit" ;;
+          macOS)   cache_dir="$HOME/Library/Caches/moonlit" ;;
+          Windows) cache_dir="${LOCALAPPDATA}\\moonlit" ;;
+          *)
+            echo "::error::setup-moonlit: unsupported runner OS '${RUNNER_OS}'. Supported: Linux, macOS, Windows."
+            exit 1
+            ;;
+        esac
+
+        install_dir="${RUNNER_TEMP}/moonlit"
+
+        {
+          echo "base=${base}"
+          echo "expected=${expected}"
+          echo "install-dir=${install_dir}"
+          echo "bin-dir=${install_dir}/bin"
+          echo "cache-dir=${cache_dir}"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Install (Linux, macOS)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        BASE: ${{ steps.resolve.outputs.base }}
+        MOONLIT_INSTALL_DIR: ${{ steps.resolve.outputs.install-dir }}
+        MOONLIT_NO_MODIFY_PATH: '1'
+      run: |
+        set -euo pipefail
+        curl --proto '=https' --tlsv1.2 -LsSf "${BASE}/moonlit-installer.sh" | sh
+
+    - name: Install (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        BASE: ${{ steps.resolve.outputs.base }}
+        INSTALL_DIR: ${{ steps.resolve.outputs.install-dir }}
+        MOONLIT_NO_MODIFY_PATH: '1'
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $env:MOONLIT_INSTALL_DIR = $env:INSTALL_DIR.Replace('/', '\')
+        Invoke-RestMethod "$env:BASE/moonlit-installer.ps1" | Invoke-Expression
+
+    - name: Add to PATH and verify
+      id: verify
+      shell: bash
+      env:
+        BIN_DIR: ${{ steps.resolve.outputs.bin-dir }}
+        EXPECTED: ${{ steps.resolve.outputs.expected }}
+      run: |
+        set -euo pipefail
+
+        echo "$BIN_DIR" >> "$GITHUB_PATH"
+
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          exe="${BIN_DIR}/moonlit.exe"
+        else
+          exe="${BIN_DIR}/moonlit"
+        fi
+
+        raw="$("$exe" --version)"
+        installed="${raw##* }"
+
+        if [[ -n "$EXPECTED" && "$installed" != "$EXPECTED" ]]; then
+          echo "::error::setup-moonlit: requested moonlit ${EXPECTED} but ${installed} was installed."
+          exit 1
+        fi
+
+        echo "version=${installed}" >> "$GITHUB_OUTPUT"
+        echo "setup-moonlit: installed moonlit ${installed} at ${BIN_DIR}"
