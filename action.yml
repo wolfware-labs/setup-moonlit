@@ -27,6 +27,9 @@ outputs:
   bin-dir:
     description: 'The directory added to PATH.'
     value: ${{ steps.resolve.outputs.bin-dir }}
+  cache-hit:
+    description: '"true" when the plugin cache restored on an exact key match.'
+    value: ${{ steps.cache.outputs.cache-hit }}
 
 runs:
   using: composite
@@ -36,6 +39,9 @@ runs:
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.version }}
+        INPUT_CACHE: ${{ inputs.cache }}
+        INPUT_CACHE_PATH: ${{ inputs.cache-dependency-path }}
+        CONFIG_HASH: ${{ hashFiles(inputs.cache-dependency-path) }}
       run: |
         set -euo pipefail
 
@@ -68,13 +74,32 @@ runs:
 
         install_dir="${RUNNER_TEMP}/moonlit"
 
+        cache_key=""
+        if [[ "$INPUT_CACHE" == "true" ]]; then
+          if [[ -n "$CONFIG_HASH" ]]; then
+            cache_key="moonlit-plugins-${RUNNER_OS}-${CONFIG_HASH}"
+          else
+            echo "setup-moonlit: no files matched '${INPUT_CACHE_PATH}', so the plugin cache is skipped. Place setup-moonlit after actions/checkout, or set cache-dependency-path."
+          fi
+        fi
+
         {
           echo "base=${base}"
           echo "expected=${expected}"
           echo "install-dir=${install_dir}"
           echo "bin-dir=${install_dir}/bin"
           echo "cache-dir=${cache_dir}"
+          echo "cache-key=${cache_key}"
         } >> "$GITHUB_OUTPUT"
+
+    - name: Restore the plugin cache
+      id: cache
+      if: steps.resolve.outputs.cache-key != ''
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ${{ steps.resolve.outputs.cache-dir }}
+        key: ${{ steps.resolve.outputs.cache-key }}
+        restore-keys: moonlit-plugins-${{ runner.os }}-
 
     - name: Install (Linux, macOS)
       if: runner.os != 'Windows'
