@@ -121,7 +121,9 @@ Set `cache: 'false'` to turn it off.
 
 ## Versioning
 
-`@v1` tracks the latest v1 release. Pin `@v1.0.0` for byte-exact reproducibility.
+`@v1` tracks the latest v1 release and picks up fixes automatically. Pin an exact release
+(`@v1.2.3`) or a commit SHA for byte-exact reproducibility. Releases are cut from Conventional
+Commits, so a patch or minor release never changes the action's inputs or outputs incompatibly.
 
 ## Licence
 
