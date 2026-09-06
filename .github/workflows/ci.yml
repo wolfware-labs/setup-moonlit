@@ -72,12 +72,16 @@ jobs:
         include:
           - label: shell injection
             bad: '; rm -rf /'
+            stage: resolve
           - label: not a version
             bad: 'not-a-version'
+            stage: resolve
           - label: newline smuggling
             bad: "latest\nhttp://evil.example"
+            stage: resolve
           - label: nonexistent release
             bad: '9.9.9-nope'
+            stage: install
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
@@ -88,7 +92,34 @@ jobs:
           version: ${{ matrix.bad }}
 
       - name: The action must have failed
-        if: steps.bad.outcome != 'failure'
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.bad.outcome }}
+          STAGE: ${{ matrix.stage }}
+          BIN_DIR: ${{ steps.bad.outputs.bin-dir }}
         run: |
-          echo "setup-moonlit accepted a version input it should have rejected"
-          exit 1
+          set -euo pipefail
+
+          if [[ "$OUTCOME" != "failure" ]]; then
+            echo "setup-moonlit accepted a version input it should have rejected"
+            exit 1
+          fi
+
+          case "$STAGE" in
+            resolve)
+              if [[ -n "$BIN_DIR" ]]; then
+                echo "expected no bin-dir output when rejected by the resolve step (pattern), got: $BIN_DIR"
+                exit 1
+              fi
+              ;;
+            install)
+              if [[ -z "$BIN_DIR" ]]; then
+                echo "expected a bin-dir output when rejected by the install step (resolve should have completed), got empty"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "unknown stage: $STAGE"
+              exit 1
+              ;;
+          esac
