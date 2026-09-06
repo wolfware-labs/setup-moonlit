@@ -1,3 +1,5 @@
+<img src="assets/moonlit.png" alt="Moonlit" width="88">
+
 # setup-moonlit
 
 Install the [Moonlit](https://github.com/wolfware-labs/moonlit) CLI in a GitHub Actions workflow.

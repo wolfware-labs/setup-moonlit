@@ -2,9 +2,13 @@ name: Setup Moonlit
 description: Install the Moonlit CLI and put it on PATH
 author: Wolfware LLC
 
+# The Marketplace renders its own Feather icon from this name — it cannot take
+# an uploaded image, so the wolf mark lives at the top of README.md instead,
+# which is what the listing body actually shows. `yellow` is the closest of the
+# eight permitted colours to Moonlit's moon-gold.
 branding:
   icon: moon
-  color: gray-dark
+  color: yellow
 
 inputs:
   version:
