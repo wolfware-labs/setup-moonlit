@@ -62,9 +62,13 @@ jobs:
           set -euo pipefail
           resolved="$(command -v moonlit)"
           echo "command -v moonlit => $resolved"
+          # Anchor on $RUNNER_TEMP itself, not just the "moonlit/bin/moonlit"
+          # suffix: the old substring check would also pass for an unrelated
+          # /usr/local/moonlit/bin/moonlit on PATH.
+          expected="${RUNNER_TEMP}/moonlit/bin/moonlit"
           case "$resolved" in
-            *moonlit/bin/moonlit*) ;;
-            *) echo "moonlit did not resolve from the action's install dir"; exit 1 ;;
+            "$expected"|"$expected".exe) ;;
+            *) echo "moonlit did not resolve from the action's install dir (expected ${expected}[.exe], got ${resolved})"; exit 1 ;;
           esac
 
       - name: The binary executes real subcommands
@@ -192,6 +196,11 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
+      # This job invokes the action twice at the same $RUNNER_TEMP/moonlit/bin,
+      # so the second invocation's verify step can pass against the binary
+      # the first invocation already installed. That's fine here: this job
+      # tests cache-skip behaviour, not a fresh install, so it never asserts
+      # install success in a way the leftover binary could mask.
       - id: off
         uses: ./
         with:

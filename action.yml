@@ -68,7 +68,7 @@ runs:
         case "$RUNNER_OS" in
           Linux)   cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/moonlit" ;;
           macOS)   cache_dir="$HOME/Library/Caches/moonlit" ;;
-          Windows) cache_dir="${LOCALAPPDATA}\\moonlit" ;;
+          Windows) cache_dir="${LOCALAPPDATA:?setup-moonlit: LOCALAPPDATA is unset}\\moonlit" ;;
           *)
             echo "::error::setup-moonlit: unsupported runner OS '${RUNNER_OS}'. Supported: Linux, macOS, Windows."
             exit 1
@@ -84,6 +84,8 @@ runs:
           else
             echo "setup-moonlit: no files matched '${INPUT_CACHE_PATH}', so the plugin cache is skipped. Place setup-moonlit after actions/checkout, or set cache-dependency-path."
           fi
+        elif [[ "$INPUT_CACHE" != "false" ]]; then
+          echo "setup-moonlit: 'cache' input is '${INPUT_CACHE}', which is neither 'true' nor 'false'; treating it as disabled and skipping the plugin cache."
         fi
 
         {
@@ -113,7 +115,7 @@ runs:
         MOONLIT_NO_MODIFY_PATH: '1'
       run: |
         set -euo pipefail
-        curl --proto '=https' --tlsv1.2 -LsSf "${BASE}/moonlit-installer.sh" | sh
+        curl --proto '=https' --proto-redir '=https' --tlsv1.2 -LsSf "${BASE}/moonlit-installer.sh" | sh
 
     - name: Install (Windows)
       if: runner.os == 'Windows'
